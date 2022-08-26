@@ -148,7 +148,6 @@ class Naomi2TTIPlugin(plugin.TTIPlugin):
     def determine_intent(self, phrase):
         phrase = self.cleantext(phrase)
         score = {}
-        allvariants = {phrase: {}}
         # replace any keyword found in the utterance with the name of the keyword group.
         # This way if the user says "I am happy" and we have the following
         # intents:
@@ -219,9 +218,13 @@ class Naomi2TTIPlugin(plugin.TTIPlugin):
         # In both of these cases, the "I AM" part of the request, despite
         # the fact that both words are very common, will determine the
         # intent.
+        allvariants = {phrase: {}}
+        # Create variants where keyword phrases are replaced with keyword
+        # indicators. For example, the keyword phrase "HAPPY" in "I AM HAPPY"
+        # is replaced with "{MoodKeyword}" making it easier to match
         for intent in self.keywords:
             variants = {phrase: {}}
-            for keyword in self.keywords[intent]:
+            for keyword in self.keywords[intent]: # This whole section is skipped if the intent has no keywords
                 for word in self.keywords[intent][keyword]:
                     count = 0  # count is the index of the match we are looking for
                     countadded = 0  # keep track of variants added for this count
@@ -266,12 +269,11 @@ class Naomi2TTIPlugin(plugin.TTIPlugin):
             self._logger.debug("************VARIANT**************")
             self._logger.debug(variant)
             variantscores[variant] = {}
-            words = variant.split()
+            variant_words = variant.split()
             intentscores = {}
             # pdb.set_trace()
             for intent in self.intent_map['intents']:
                 self._logger.debug(f"Intent: {intent}")
-                intentscores[intent] = 0
                 # pprint(self.intent_map['intents'][intent]['words'])
                 # build up a score based on the words that match.
                 for template in self.intent_map['intents'][intent]['templates']:
@@ -280,18 +282,31 @@ class Naomi2TTIPlugin(plugin.TTIPlugin):
                     template_words = template.split()
                     # Split the template into words, and get the total words
                     # that match between the template and the variant.
-                    for word in words:
+                    for word in template_words:
                         self._logger.debug(f"Scoring word: {word}")
-                        if word in template_words:
+                        if word in variant_words:
+                            # reward the variant for containing the word
                             try:
                                 score += 1/self.words[word] # Add 1/count, more popular words have less weight
                             except KeyError:
                                 pass
                             self._logger.debug(f"Score: {score}")
-                    if score > intentscores[intent]:
+                        else:
+                            # penalize the variant for not containing the word
+                            try:
+                                score -= 1/self.words[word]
+                            except KeyError:
+                                pass
+                        self._logger.debug(f"Score: {score}")
+                    try:
+                        if score > intentscores[intent]:
+                            intentscores[intent]=score
+                    except KeyError:
                         intentscores[intent]=score
                 self._logger.debug(f"{intent}: {score}")
             # Take the intent with the highest score
+            for intent in intentscores:
+                self._logger.debug(f"{intent}: {intentscores[intent]}")
             bestintent = max(intentscores, key=intentscores.get)
             bestscore = intentscores[bestintent]
             # Check if there are multiple intents with the same score.
