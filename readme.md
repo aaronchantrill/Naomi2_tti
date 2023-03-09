@@ -4,7 +4,7 @@ label: Naomi2 TTI
 title: Naomi2 TTI - TTI
 type: tti
 description: "Naomi's updated Text to Intent parser"
-source: https://github.com/austincasteel/dadjokes/blob/master/readme.md
+source: https://github.com/aaronchantrill/Naomi2_tti/blob/main/readme.md
 meta:
   - property: og:title
     content: "Naomi2 TTI - TTI"
